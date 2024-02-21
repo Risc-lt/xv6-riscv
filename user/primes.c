@@ -122,7 +122,7 @@ int main(int argc, char *argv[])
 
     // initialize the number
     int buff = 2;
-    while(buff < 33){
+    while(buff < 36){
       write(init_pipe[1], &buff, sizeof(buff));
       buff++;
     }
