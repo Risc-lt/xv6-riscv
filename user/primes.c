@@ -61,7 +61,7 @@ void sieve(int pl[2]){
     exit(0);
   }
   
-  printf("primes %d\n", out);
+  printf("prime %d\n", out);
   
   int pr[2];
   pipe(pr);
