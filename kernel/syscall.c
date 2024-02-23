@@ -138,6 +138,13 @@ syscall(void)
   num = p->trapframe->a7;
   if(num > 0 && num < NELEM(syscalls) && syscalls[num]) {
     p->trapframe->a0 = syscalls[num]();
+
+  /* Beginning of print for _trace */
+  if (num == SYS_fork || num == SYS_exit || num == SYS_wait || num == SYS_pipe || num == SYS_read || num == SYS_kill || num == SYS_exec || num == SYS_fstat || num == SYS_chdir || num == SYS_dup || num == SYS_getpid || num == SYS_sbrk || num == SYS_sleep || num == SYS_uptime || num == SYS_open || num == SYS_write || num == SYS_mknod || num == SYS_unlink || num == SYS_link || num == SYS_mkdir || num == SYS_close) {
+    printf("%d: syscall %s -> %d\n", p->pid, p->name, p->trapframe->a0);
+  }
+  /* End of print for _trace */
+
   } else {
     printf("%d %s: unknown sys call %d\n",
             p->pid, p->name, num);

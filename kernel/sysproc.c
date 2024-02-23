@@ -11,6 +11,13 @@ uint64
 sys_exit(void)
 {
   int n;
+  /**
+   * Retrieves an integer argument from the user stack.
+   *
+   * @param argIndex The index of the argument on the user stack.
+   * @param argValue Pointer to store the retrieved integer value.
+   * @return Returns 0 on success, or a negative value if an error occurred.
+   */
   if(argint(0, &n) < 0)
     return -1;
   exit(n);
@@ -94,4 +101,18 @@ sys_uptime(void)
   xticks = ticks;
   release(&tickslock);
   return xticks;
+}
+
+// self-defined trace system call
+uint64
+sys_trace(void)
+{
+  int mask;
+
+  if(argint(0, &mask) < 0)
+    return -1;
+
+  myproc()->trace_mask = mask;
+
+  return 0;
 }

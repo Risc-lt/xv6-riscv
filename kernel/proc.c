@@ -280,6 +280,9 @@ fork(void)
   // copy saved user registers.
   *(np->trapframe) = *(p->trapframe);
 
+  // Self-defined: copy the signal mask from parent to child
+  np->signal_mask = p->signal_mask;
+
   // Cause fork to return 0 in the child.
   np->trapframe->a0 = 0;
 
