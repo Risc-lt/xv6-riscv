@@ -106,26 +106,6 @@ static uint64 (*syscalls[])(void) = {
     [SYS_trace] sys_trace, [SYS_sysinfo] sys_sysinfo,
 };
 
-void syscall(void) {
-  int num;
-  struct proc *p = myproc();
-
-  num = p->trapframe->a7;
-  if (num > 0 && num < NELEM(syscalls) && syscalls[num]) {
-    p->trapframe->a0 = syscalls[num]();
-
-    /* Beginning of print for _trace */
-    if ((p->trace_mask >> num) & 1) {
-      printf("%d: syscall %s -> %d\n", p->pid, p->name, p->trapframe->a0);
-    }
-    /* End of print for _trace */
-
-  } else {
-    printf("%d %s: unknown sys call %d\n", p->pid, p->name, num);
-    p->trapframe->a0 = -1;
-  }
-}
-
 // Self-implemented array of system call names
 const char *syscall_names[] = {
     [SYS_fork] "fork",   [SYS_exit] "exit",     [SYS_wait] "wait",
@@ -137,3 +117,24 @@ const char *syscall_names[] = {
     [SYS_link] "link",   [SYS_mkdir] "mkdir",   [SYS_close] "close",
     [SYS_trace] "trace", [SYS_sysinfo] "sysinfo",
 };
+
+void syscall(void) {
+  int num;
+  struct proc *p = myproc();
+
+  num = p->trapframe->a7;
+  if (num > 0 && num < NELEM(syscalls) && syscalls[num]) {
+    p->trapframe->a0 = syscalls[num]();
+
+    /* Beginning of print for _trace */
+    if ((p->trace_mask >> num) & 1) {
+      printf("%d: syscall %s -> %d\n", p->pid, syscall_names[num], p->trapframe->a0);
+    }
+    /* End of print for _trace */
+
+  } else {
+    printf("%d %s: unknown sys call %d\n", p->pid, p->name, num);
+    p->trapframe->a0 = -1;
+  }
+}
+
