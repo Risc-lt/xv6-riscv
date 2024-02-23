@@ -127,6 +127,9 @@ found:
   p->context.ra = (uint64)forkret;
   p->context.sp = p->kstack + PGSIZE;
 
+  // Self-defined: initialize the signal mask
+  p->trace_mask = 0;
+
   return p;
 }
 
@@ -281,7 +284,7 @@ fork(void)
   *(np->trapframe) = *(p->trapframe);
 
   // Self-defined: copy the signal mask from parent to child
-  np->signal_mask = p->signal_mask;
+  np->trace_mask = p->trace_mask;
 
   // Cause fork to return 0 in the child.
   np->trapframe->a0 = 0;
