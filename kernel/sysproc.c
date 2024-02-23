@@ -97,6 +97,10 @@ uint64 sys_trace(void) {
 
 // self-defined sysinfo system call
 uint64 sys_sysinfo(void) {
+  uint64 addr;
+  if(argaddr(0, &addr) < 0)
+    return -1;
+
   struct sysinfo info;
 
   info.freemem = freemem();
