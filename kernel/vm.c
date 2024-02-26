@@ -43,13 +43,13 @@ void kvminit_map(pagetable_t pgtl) {
   kvmmap(pgtl, VIRTIO0, VIRTIO0, PGSIZE, PTE_R | PTE_W);
 
   // CLINT
-  kvmmap(pgtl, CLINT, 0x10000, PTE_R | PTE_W);
+  kvmmap(pgtl, CLINT, CLINT, 0x10000, PTE_R | PTE_W);
 
   // PLIC
   kvmmap(pgtl, PLIC, PLIC, 0x400000, PTE_R | PTE_W);
 
   // map kernel text executable and read-only.
-  kvmmap(pgtl, KERNBASE, (uint64)etext - KERNBASE, PTE_R | PTE_X);
+  kvmmap(pgtl, KERNBASE, KERNBASE, (uint64)etext - KERNBASE, PTE_R | PTE_X);
 
   // map kernel data and the physical RAM we'll make use of.
   kvmmap(pgtl, (uint64)etext, (uint64)etext, PHYSTOP - (uint64)etext, PTE_R | PTE_W);
@@ -130,7 +130,7 @@ void kvmmap(pagetable_t pgtl, uint64 va, uint64 pa, uint64 sz, int perm) {
 // a physical address. only needed for
 // addresses on the stack.F
 // assumes va is page aligned.
-uint64 kvmpa(pagetablr_t pgtl, uint64 va) {
+uint64 kvmpa(pagetable_t pgtl, uint64 va) {
   uint64 off = va % PGSIZE;
   pte_t *pte;
   uint64 pa;

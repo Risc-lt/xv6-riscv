@@ -21,7 +21,7 @@ static void freeproc(struct proc *p);
 
 extern char trampoline[]; // trampoline.S
 
-// initialize the proc table at boot time.TODO:
+// initialize the proc table at boot time.
 void
 procinit(void)
 {
@@ -79,7 +79,7 @@ allocpid() {
 // Look in the process table for an UNUSED proc.
 // If found, initialize state required to run in the kernel,
 // and return with p->lock held.
-// If there are no free procs, or a memory allocation fails, return 0.TODO:
+// If there are no free procs, or a memory allocation fails, return 0.
 static struct proc*
 allocproc(void)
 {
@@ -121,7 +121,7 @@ found:
   // Allocate a page for the process's kernel stack.
   // Map it high in memory, followed by an invalid
   // guard page.
-  p->kpagetable = kvminit_newpgtl();
+  p->kpagetable = kvminit_newpagetable();
 
   char *pa = kalloc();
   if(pa == 0)
@@ -155,7 +155,7 @@ freeproc(struct proc *p)
   p->xstate = 0;
   p->state = UNUSED;
   
-  uint64* va = kvmpa(p->pagrtable, p->kstack);
+  void* va = (void*)kvmpa(p->pagetable, p->kstack);
   if(va) {
     kfree((void*)va);
   }
@@ -168,7 +168,7 @@ freeproc(struct proc *p)
 }
 
 // free both virtual memory and physical memory for a process's kernel pagetable.
-kvmpgtl_free(pagetable_t pagetable) {
+void kvmpgtl_free(pagetable_t pagetable) {
   for (int i = 0; i < 512; i++) {
     pte_t pte = pagetable[i];
     if ((pte & PTE_V) && (pte & (PTE_R | PTE_W | PTE_X)) == 0) {
