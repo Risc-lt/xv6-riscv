@@ -112,12 +112,6 @@ found:
     return 0;
   }
 
-  // Set up new context to start executing at forkret,
-  // which returns to user space.
-  memset(&p->context, 0, sizeof(p->context));
-  p->context.ra = (uint64)forkret;
-  p->context.sp = p->kstack + PGSIZE;
-
   // Allocate a page for the process's kernel stack.
   // Map it high in memory, followed by an invalid
   // guard page.
@@ -126,10 +120,17 @@ found:
   char *pa = kalloc();
   if(pa == 0)
     panic("kalloc");
-  uint64 va = KSTACK((int) (p - proc));
+  uint64 va = KSTACK((int)0);
   
   kvmmap(p->kpagetable, va, (uint64)pa, PGSIZE, PTE_R | PTE_W);
   p->kstack = va;
+
+  // Set up new context to start executing at forkret,
+  // which returns to user space.
+  memset(&p->context, 0, sizeof(p->context));
+  p->context.ra = (uint64)forkret;
+  p->context.sp = p->kstack + PGSIZE;
+
 
   return p;
 }

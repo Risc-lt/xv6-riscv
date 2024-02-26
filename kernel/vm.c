@@ -28,7 +28,7 @@ void kvminit() {
 pagetable_t kvminit_newpagetable() {
   // create a new page table.
   pagetable_t pgtl = (pagetable_t)kalloc();
-  memset(kernel_pagetable, 0, PGSIZE);
+  memset(pgtl, 0, PGSIZE);
 
   kvminit_map(pgtl);
   return pgtl;
