@@ -21,7 +21,7 @@ static void freeproc(struct proc *p);
 
 extern char trampoline[]; // trampoline.S
 
-// initialize the proc table at boot time.
+// initialize the proc table at boot time.TODO:
 void
 procinit(void)
 {
@@ -31,15 +31,6 @@ procinit(void)
   for(p = proc; p < &proc[NPROC]; p++) {
       initlock(&p->lock, "proc");
 
-      // Allocate a page for the process's kernel stack.
-      // Map it high in memory, followed by an invalid
-      // guard page.
-      char *pa = kalloc();
-      if(pa == 0)
-        panic("kalloc");
-      uint64 va = KSTACK((int) (p - proc));
-      kvmmap(va, (uint64)pa, PGSIZE, PTE_R | PTE_W);
-      p->kstack = va;
   }
   kvminithart();
 }
@@ -88,7 +79,7 @@ allocpid() {
 // Look in the process table for an UNUSED proc.
 // If found, initialize state required to run in the kernel,
 // and return with p->lock held.
-// If there are no free procs, or a memory allocation fails, return 0.
+// If there are no free procs, or a memory allocation fails, return 0.TODO:
 static struct proc*
 allocproc(void)
 {
@@ -127,6 +118,19 @@ found:
   p->context.ra = (uint64)forkret;
   p->context.sp = p->kstack + PGSIZE;
 
+  // Allocate a page for the process's kernel stack.
+  // Map it high in memory, followed by an invalid
+  // guard page.
+  p->kpagetable = kvminit_newpgtl();
+
+  char *pa = kalloc();
+  if(pa == 0)
+    panic("kalloc");
+  uint64 va = KSTACK((int) (p - proc));
+  
+  kvmmap(p->kpagetable, va, (uint64)pa, PGSIZE, PTE_R | PTE_W);
+  p->kstack = va;
+
   return p;
 }
 
@@ -150,7 +154,35 @@ freeproc(struct proc *p)
   p->killed = 0;
   p->xstate = 0;
   p->state = UNUSED;
+  
+  uint64* va = kvmpa(p->pagrtable, p->kstack);
+  if(va) {
+    kfree((void*)va);
+  }
+  p->kstack = 0;
+
+  if(p->kpagetable) {
+    kvmpgtl_free(p->kpagetable);
+    p->kpagetable = 0;
+  }
 }
+
+// free both virtual memory and physical memory for a process's kernel pagetable.
+kvmpgtl_free(pagetable_t pagetable) {
+  for (int i = 0; i < 512; i++) {
+    pte_t pte = pagetable[i];
+    if ((pte & PTE_V) && (pte & (PTE_R | PTE_W | PTE_X)) == 0) {
+      // this PTE points to a lower-level page table.
+      uint64 child = PTE2PA(pte);
+      kvmpgtl_free((pagetable_t)child);
+      pagetable[i] = 0;
+    } else if (pte & PTE_V) {
+      panic("kvmpgtl_free: leaf");
+    }
+  }
+  kfree((void *)pagetable);
+}
+
 
 // Create a user page table for a given process,
 // with no user memory, but with trampoline pages.
@@ -473,7 +505,13 @@ scheduler(void)
         // before jumping back to us.
         p->state = RUNNING;
         c->proc = p;
+
+        w_satp(MAKE_SATP(p->kpagetable));
+        sfence_vma();
+
         swtch(&c->context, &p->context);
+
+        kvminithart();
 
         // Process is done running for now.
         // It should have changed its p->state before coming back.
