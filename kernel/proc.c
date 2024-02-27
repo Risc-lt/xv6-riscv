@@ -253,7 +253,7 @@ userinit(void)
   // and data into it.
   uvminit(p->pagetable, initcode, sizeof(initcode));
   p->sz = PGSIZE;
-  kvmcopymappings(p->pagetable, p->kernelpgtbl, 0, p->sz); // Synchronize program memory mapping to process kernel page tables
+  kvmcopymappings(p->pagetable, p->kpagetable, 0, p->sz); // Synchronize program memory mapping to process kernel page tables
 
   // prepare for the very first "return" from kernel to user.
   p->trapframe->epc = 0;      // user program counter
@@ -282,11 +282,11 @@ growproc(int n)
       return -1;
     }
     // Synchronized expansion of mappings in the kernel page table.
-    if(kvmcopymappings(p->pagetable, p->kernelpgtbl, sz, n) != 0) {
-      uvmdealloc(p->pagetable, newsz, sz);
+    if(kvmcopymappings(p->pagetable, p->kpagetable, sz, n) != 0) {
+      uvmdealloc(p->pagetable, new_sz, sz);
       return -1;
     }
-    sz = newsz;
+    sz = new_sz;
   } else if(n < 0){
     sz = uvmdealloc(p->pagetable, sz, sz + n);
   }
