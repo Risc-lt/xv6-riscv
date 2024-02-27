@@ -107,6 +107,10 @@ exec(char *path, char **argv)
     if(*s == '/')
       last = s+1;
   safestrcpy(p->name, last, sizeof(p->name));
+
+  // Clears the old mapping of program memory from the kernel page table and then reestablishes it.
+  uvmunmap(p->kernelpgtbl, 0, PGROUNDUP(oldsz)/PGSIZE, 0);
+  kvmcopymappings(pagetable, p->kernelpgtbl, 0, sz);
     
   // Commit to the user image.
   oldpagetable = p->pagetable;
