@@ -154,18 +154,16 @@ freeproc(struct proc *p)
   p->chan = 0;
   p->killed = 0;
   p->xstate = 0;
-  p->state = UNUSED;
   
-  void* va = (void*)kvmpa(p->pagetable, p->kstack);
-  if(va) {
-    kfree((void*)va);
-  }
+  
+  void* va = (void*)kvmpa(p->kpagetable, p->kstack);
+  kfree(va);
   p->kstack = 0;
 
-  if(p->kpagetable) {
-    kvmpgtl_free(p->kpagetable);
-    p->kpagetable = 0;
-  }
+  kvmpgtl_free(p->kpagetable);
+  p->kpagetable = 0;
+
+  p->state = UNUSED;
 }
 
 // free both virtual memory and physical memory for a process's kernel pagetable.
@@ -177,8 +175,6 @@ void kvmpgtl_free(pagetable_t pagetable) {
       uint64 child = PTE2PA(pte);
       kvmpgtl_free((pagetable_t)child);
       pagetable[i] = 0;
-    } else if (pte & PTE_V) {
-      panic("kvmpgtl_free: leaf");
     }
   }
   kfree((void *)pagetable);
