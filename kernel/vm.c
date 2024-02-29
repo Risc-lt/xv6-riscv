@@ -477,8 +477,8 @@ kvmcopymappings(pagetable_t src, pagetable_t dst, uint64 start, uint64 sz)
       panic("kvmcopymappings: page not present");
     pa = PTE2PA(*pte);
     // the permissions of the page are to a non-user page
-    flags = PTE_FLAGS(*pte) & ~PTE_U;
-    if(mappages(dst, i, PGSIZE, pa, flags) != 0){
+    flags = PTE_FLAGS(*pte);
+    if(mappages(dst, i, PGSIZE, pa, flags & ~PTE_U) != 0){
       goto err;
     }
   }
@@ -486,7 +486,7 @@ kvmcopymappings(pagetable_t src, pagetable_t dst, uint64 start, uint64 sz)
   return 0;
 
  err:
-  uvmunmap(dst, PGROUNDUP(start), (i - PGROUNDUP(start)) / PGSIZE, 0);
+  uvmunmap(dst, start, (i - PGROUNDUP(start)) / PGSIZE, 0);
   return -1;
 }
 

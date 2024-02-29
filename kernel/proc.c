@@ -285,7 +285,7 @@ growproc(int n)
     }
     sz = new_sz;
   } else if(n < 0){
-    sz = uvmdealloc(p->pagetable, sz, sz + n);
+    uvmdealloc(p->pagetable, sz, sz + n);
     // Synchronized reduction of mappings in the kernel page table.
     sz = kvmdealloc(p->kpagetable, sz, sz + n);
   }
