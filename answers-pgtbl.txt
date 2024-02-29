@@ -1,1 +1,1 @@
-NULL
+What permissions do the PTEs for user addresses need in a process's kernel page table?

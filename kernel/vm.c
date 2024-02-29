@@ -475,7 +475,7 @@ kvmcopymappings(pagetable_t src, pagetable_t dst, uint64 start, uint64 sz)
     if((*pte & PTE_V) == 0)
       panic("kvmcopymappings: page not present");
     pa = PTE2PA(*pte);
-    // the permissions of the page are  to a non-user page
+    // the permissions of the page are to a non-user page
     flags = PTE_FLAGS(*pte) & ~PTE_U;
     if(mappages(dst, i, PGSIZE, pa, flags) != 0){
       goto err;
