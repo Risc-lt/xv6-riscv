@@ -146,6 +146,14 @@ freeproc(struct proc *p)
   p->trapframe = 0;
   if(p->pagetable)
     proc_freepagetable(p->pagetable, p->sz);
+
+  void* va = (void*)kvmpa(p->kpagetable, p->kstack);
+  kfree(va);
+  p->kstack = 0;
+
+  kvmpgtl_free(p->kpagetable);
+  p->kpagetable = 0;
+
   p->pagetable = 0;
   p->sz = 0;
   p->pid = 0;
@@ -154,16 +162,8 @@ freeproc(struct proc *p)
   p->chan = 0;
   p->killed = 0;
   p->xstate = 0;
-  
-  
-  void* va = (void*)kvmpa(p->kpagetable, p->kstack);
-  kfree(va);
-  p->kstack = 0;
-
-  kvmpgtl_free(p->kpagetable);
-  p->kpagetable = 0;
-
   p->state = UNUSED;
+
 }
 
 // free both virtual memory and physical memory for a process's kernel pagetable.
@@ -221,6 +221,7 @@ proc_freepagetable(pagetable_t pagetable, uint64 sz)
 {
   uvmunmap(pagetable, TRAMPOLINE, 1, 0);
   uvmunmap(pagetable, TRAPFRAME, 1, 0);
+  
   uvmfree(pagetable, sz);
 }
 
