@@ -5,6 +5,8 @@
 #include "riscv.h"
 #include "defs.h"
 #include "fs.h"
+#include "spinlock.h"
+#include "proc.h"
 
 /*
  * the kernel's page table.
@@ -471,7 +473,7 @@ int uvmcheckcowcopy(uint64 va){
 }
 
 // Do the COW copy.
-void uvmcowcopy(uint64 va){
+int uvmcowcopy(uint64 va){
   pte_t *pte;
   struct proc *p = myproc();
   uint64 pa;

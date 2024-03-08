@@ -102,7 +102,7 @@ kalloc(void)
 
 // allocate physical memory for cow and dereference the original memory
 void *
-kalloc_n_deref(void* pa)
+kcopy_n_deref(void* pa)
 {
   acquire(&pgreflock);
 

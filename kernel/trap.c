@@ -67,7 +67,7 @@ usertrap(void)
     syscall();
   } else if((which_dev = devintr()) != 0){
     // ok
-  } else if((r_scause() == 13 || r_scause() == 15) && uvmcheckcowpage(r_stval())) { 
+  } else if((r_scause() == 13 || r_scause() == 15) && uvmcheckcowcopy(r_stval())) { 
     // copy-on-write
     if(uvmcowcopy(r_stval()) == -1){ // kill the process if the copy fails(no memory)
       p->killed = 1;

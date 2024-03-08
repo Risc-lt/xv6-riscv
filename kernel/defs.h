@@ -63,7 +63,7 @@ void            ramdiskrw(struct buf*);
 void*           kalloc(void);
 void            kfree(void *);
 void            kinit(void);
-void*           kalloc_n_deref(void* pa);
+void*           kcopy_n_deref(void *pa);
 void            krefpage(void *pa);
 
 // log.c
