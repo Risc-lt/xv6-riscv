@@ -460,16 +460,12 @@ copyinstr(pagetable_t pagetable, char *dst, uint64 srcva, uint64 max)
 // Check if the page is COW.
 int uvmcheckcowcopy(uint64 va){
   pte_t *pte;
-  pte = walk(myproc()->pagetable, va, 0);
-  if(va >= myproc()->sz)
-    panic("uvmcheckcowcopy: va should be less than sz");
-  if(pte == 0)
-    panic("uvmcheckcowcopy: pte should exist");
-  if((*pte & PTE_V) == 0)
-    panic("uvmcheckcowcopy: page not present");
-  if((*pte & PTE_COW) == 0)
-    return 0;
-  return 1;
+  struct proc *p = myproc();
+
+  return va < p->sz // within the process's memory
+    && ((pte = walk(p->pagetable, va, 0))!=0)
+    && (*pte & PTE_V) // valid page
+    && (*pte & PTE_COW); // check cow page
 }
 
 // Do the COW copy.
