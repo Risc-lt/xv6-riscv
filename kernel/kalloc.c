@@ -18,6 +18,9 @@
 struct spinlock pgreflock; // Locks for pageref arrays to prevent memory leaks caused by race conditions.
 int pageref[PGREF_MAX_ENTRIES]; // Record the reference count for each physical page
 
+// Getting reference counts by physical address
+#define PA2PGREF(p) pageref[PA2PGREF_ID((uint64)(p))]
+
 void freerange(void *pa_start, void *pa_end);
 
 extern char end[]; // first address after kernel.
@@ -35,7 +38,7 @@ struct {
 void
 kinit()
 {
-  initlock(&kmem.lock, "kmem");、
+  initlock(&kmem.lock, "kmem");
   initlock(&pgreflock, "pgreflock");
   freerange(end, (void*)PHYSTOP);
 }
@@ -62,7 +65,7 @@ kfree(void *pa)
     panic("kfree");
 
   acquire(&pgreflock);
-  if(--pageref[PA2PGREF_ID(pa)] <= 0){
+  if(--pageref[PA2PGREF_ID((uint64)pa)] <= 0){
     // Fill with junk to catch dangling refs.
     memset(pa, 1, PGSIZE);
 
@@ -103,7 +106,7 @@ kalloc_n_deref(void* pa)
 {
   acquire(&pgreflock);
 
-  if(PA2PAGREF(pa) <= 1){
+  if(PA2PGREF(pa) <= 1){
     release(&pgreflock);
     return pa;
   }
@@ -115,7 +118,7 @@ kalloc_n_deref(void* pa)
   }
   memmove((char*)newpa, (char*)pa, PGSIZE);
 
-  PA2PAGREF(pa)--;
+  PA2PGREF(pa)--;
 
   release(&pgreflock);
   return (void*)newpa;
