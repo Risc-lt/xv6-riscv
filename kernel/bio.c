@@ -40,9 +40,9 @@ binit(void)
   initlock(&bcache.lock, "bcache");
 
   // Initialize bufmap
-  for(int i = 0; i < BUFMAP_BUCKETS; i++) {
+  for(int i = 0; i < NBUFMAP_BUCKETS; i++) {
     initlock(&bcache.bufmap_lock[i], "bufmap");
-    bcache.bufmap[i].next = NULL;
+    bcache.bufmap[i].next = 0;
   }
 
   // Create a linked list of buffers.
@@ -102,7 +102,7 @@ bget(uint dev, uint blockno)
   
   // Still not cached.
   // Recycle the least recently used (LRU) unused buffer.
-  sturct buf *least = NULL;
+  struct buf* least = 0;
   uint holding_bucket = -1;
 
   for(int i = 0; i < NBUFMAP_BUCKETS; i++) {
@@ -110,7 +110,7 @@ bget(uint dev, uint blockno)
     acquire(&bcache.bufmap_lock[i]);
     int found = 0;
 
-    for(b = bcache.bufmap[i]; b; b = b->next){
+    for(*b = bcache.bufmap[i]; b; b = b->next){
       if(b->next->refcnt == 0 && (!least || b->next->last_use < least->next->last_use)) {
         least = b;
         found = 1;
@@ -118,10 +118,10 @@ bget(uint dev, uint blockno)
     }
 
   if(!found) {
-    release(&bcache.bufmap_locks[i]);
+    release(&bcache.bufmap_lock[i]);
   } else {
       if(holding_bucket != -1) 
-        release(&bcache.bufmap_locks[holding_bucket]);
+        release(&bcache.bufmap_lock[holding_bucket]);
       holding_bucket = i;
     }
   }
@@ -134,9 +134,9 @@ bget(uint dev, uint blockno)
   if(holding_bucket != key) {
     // remove the buf from it's original bucket
     least->next = b->next;
-    release(&bcache.bufmap_locks[holding_bucket]);
+    release(&bcache.bufmap_lock[holding_bucket]);
     // rehash and add it to the target bucket
-    acquire(&bcache.bufmap_locks[key]);
+    acquire(&bcache.bufmap_lock[key]);
     b->next = bcache.bufmap[key].next;
     bcache.bufmap[key].next = b;
   }
