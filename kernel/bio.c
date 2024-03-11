@@ -23,32 +23,40 @@
 #include "fs.h"
 #include "buf.h"
 
+#define BUFHASH_MAP(dev, blockno) (((dev << 15) + blockno) % NBUFMAP_BUCKETS)
+
 struct {
   struct spinlock lock;
   struct buf buf[NBUF];
 
-  // Linked list of all buffers, through prev/next.
-  // Sorted by how recently the buffer was used.
-  // head.next is most recent, head.prev is least.
-  struct buf head;
+  // bufmap is a hash table that maps (dev, blockno) to a buffer.
+  struct buf bufmap[NBUFMAP_BUCKETS];
+  struct spinlock bufmap_lock[NBUFMAP_BUCKETS]; 
 } bcache;
 
 void
 binit(void)
 {
-  struct buf *b;
-
   initlock(&bcache.lock, "bcache");
 
-  // Create linked list of buffers
-  bcache.head.prev = &bcache.head;
-  bcache.head.next = &bcache.head;
-  for(b = bcache.buf; b < bcache.buf+NBUF; b++){
-    b->next = bcache.head.next;
-    b->prev = &bcache.head;
+  // Initialize bufmap
+  for(int i = 0; i < BUFMAP_BUCKETS; i++) {
+    initlock(&bcache.bufmap_lock[i], "bufmap");
+    bcache.bufmap[i].next = NULL;
+  }
+
+  // Create a linked list of buffers.
+  // Firstly, put all buffers into the first bucket.
+  for(int i = 0; i < NBUF; i++){
+    struct buf *b = &bcache.buf[i];
+
+    b->refcnt = 0;
+    b->last_use = 0;
+
     initsleeplock(&b->lock, "buffer");
-    bcache.head.next->prev = b;
-    bcache.head.next = b;
+
+    b->next = bcache.bufmap[0].next;
+    bcache.bufmap[0].next = b;
   }
 }
 
@@ -60,32 +68,87 @@ bget(uint dev, uint blockno)
 {
   struct buf *b;
 
-  acquire(&bcache.lock);
+  uint key = BUFHASH_MAP(dev, blockno);
+
+  acquire(&bcache.bufmap_lock[key]);
 
   // Is the block already cached?
-  for(b = bcache.head.next; b != &bcache.head; b = b->next){
+  for(b = bcache.bufmap[key].next; b; b = b->next){
     if(b->dev == dev && b->blockno == blockno){
       b->refcnt++;
-      release(&bcache.lock);
+      release(&bcache.bufmap_lock[key]);
       acquiresleep(&b->lock);
       return b;
     }
   }
 
   // Not cached.
-  // Recycle the least recently used (LRU) unused buffer.
-  for(b = bcache.head.prev; b != &bcache.head; b = b->prev){
-    if(b->refcnt == 0) {
-      b->dev = dev;
-      b->blockno = blockno;
-      b->valid = 0;
-      b->refcnt = 1;
+  // Release the bucket lock.
+  release(&bcache.bufmap_lock[key]);
+  // Acquire the global lock.
+  acquire(&bcache.lock);
+
+  // To avoid race condition, we need to check again.
+  for(b = bcache.bufmap[key].next; b; b = b->next){
+    if(b->dev == dev && b->blockno == blockno){
+      acquire(&bcache.bufmap_lock[key]);
+      b->refcnt++;
+      release(&bcache.bufmap_lock[key]);
       release(&bcache.lock);
       acquiresleep(&b->lock);
       return b;
     }
   }
-  panic("bget: no buffers");
+  
+  // Still not cached.
+  // Recycle the least recently used (LRU) unused buffer.
+  sturct buf *least = NULL;
+  uint holding_bucket = -1;
+
+  for(int i = 0; i < NBUFMAP_BUCKETS; i++) {
+
+    acquire(&bcache.bufmap_lock[i]);
+    int found = 0;
+
+    for(b = bcache.bufmap[i]; b; b = b->next){
+      if(b->next->refcnt == 0 && (!least || b->next->last_use < least->next->last_use)) {
+        least = b;
+        found = 1;
+      }
+    }
+
+  if(!found) {
+    release(&bcache.bufmap_locks[i]);
+  } else {
+      if(holding_bucket != -1) 
+        release(&bcache.bufmap_locks[holding_bucket]);
+      holding_bucket = i;
+    }
+  }
+
+  if(!least) {
+    panic("bget: no buffers");
+  }
+  b = least->next;
+  
+  if(holding_bucket != key) {
+    // remove the buf from it's original bucket
+    least->next = b->next;
+    release(&bcache.bufmap_locks[holding_bucket]);
+    // rehash and add it to the target bucket
+    acquire(&bcache.bufmap_locks[key]);
+    b->next = bcache.bufmap[key].next;
+    bcache.bufmap[key].next = b;
+  }
+
+    b->dev = dev;
+    b->blockno = blockno;
+    b->valid = 0;
+    b->refcnt = 1;
+    release(&bcache.bufmap_lock[key]);
+    release(&bcache.lock);
+    acquiresleep(&b->lock);
+    return b;
 }
 
 // Return a locked buf with the contents of the indicated block.
@@ -121,33 +184,34 @@ brelse(struct buf *b)
 
   releasesleep(&b->lock);
 
-  acquire(&bcache.lock);
+  uint key = BUFHASH_MAP(b->dev, b->blockno);
+
+  acquire(&bcache.bufmap_lock[key]);
   b->refcnt--;
   if (b->refcnt == 0) {
     // no one is waiting for it.
-    b->next->prev = b->prev;
-    b->prev->next = b->next;
-    b->next = bcache.head.next;
-    b->prev = &bcache.head;
-    bcache.head.next->prev = b;
-    bcache.head.next = b;
+    b->last_use = ticks;
   }
   
-  release(&bcache.lock);
+  release(&bcache.bufmap_lock[key]);
 }
 
 void
 bpin(struct buf *b) {
-  acquire(&bcache.lock);
+  uint key = BUFHASH_MAP(b->dev, b->blockno);
+
+  acquire(&bcache.bufmap_lock[key]);
   b->refcnt++;
-  release(&bcache.lock);
+  release(&bcache.bufmap_lock[key]);
 }
 
 void
 bunpin(struct buf *b) {
-  acquire(&bcache.lock);
+  uint key = BUFHASH_MAP(b->dev, b->blockno);
+
+  acquire(&bcache.bufmap_lock[key]);
   b->refcnt--;
-  release(&bcache.lock);
+  release(&bcache.bufmap_lock[key]);
 }
 
 
