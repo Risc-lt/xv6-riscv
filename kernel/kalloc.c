@@ -21,12 +21,25 @@ struct run {
 struct {
   struct spinlock lock;
   struct run *freelist;
-} kmem;
+} kmem[NCPU];
+
+char *kmem_lock_names[] = {
+  "kmem_cpu_0",
+  "kmem_cpu_1",
+  "kmem_cpu_2",
+  "kmem_cpu_3",
+  "kmem_cpu_4",
+  "kmem_cpu_5",
+  "kmem_cpu_6",
+  "kmem_cpu_7",
+};
 
 void
 kinit()
-{
-  initlock(&kmem.lock, "kmem");
+{ 
+  for (int i = 0; i < NCPU; i++) {
+    initlock(&kmem[i].lock, kmem_lock_names[i]);
+  }
   freerange(end, (void*)PHYSTOP);
 }
 
@@ -56,10 +69,16 @@ kfree(void *pa)
 
   r = (struct run*)pa;
 
-  acquire(&kmem.lock);
-  r->next = kmem.freelist;
-  kmem.freelist = r;
-  release(&kmem.lock);
+  push_off();
+
+  int cpu = cpuid();
+
+  acquire(&kmem[cpu].lock);
+  r->next = kmem[cpu].freelist;
+  kmem[cpu].freelist = r;
+  release(&kmem[cpu].lock);
+
+  pop_off();
 }
 
 // Allocate one 4096-byte page of physical memory.
@@ -70,13 +89,51 @@ kalloc(void)
 {
   struct run *r;
 
-  acquire(&kmem.lock);
-  r = kmem.freelist;
+  push_off();
+
+  int cpu = cpuid();
+
+  acquire(&kmem[cpu].lock);
+
+  /*
+    TODO: There are still some problems about deadlock, 
+    i.e. cpu_1 tries to steal from cpi_2, then cpu_2 tries to steal cpu_1.
+    Solution: add a steal_lock for each cpu.
+  */
+  if(!kmem[cpu].freelist) { // no page left for this cpu
+    int steal_left = 64; // steal some pages from other cpu(s)
+
+    for(int i=0;i<NCPU;i++) {
+
+      if(i == cpu) 
+        continue; // no self-robbery
+
+      acquire(&kmem[i].lock);
+
+      struct run *rr = kmem[i].freelist;
+      while(rr && steal_left) {
+        kmem[i].freelist = rr->next;
+        rr->next = kmem[cpu].freelist;
+        kmem[cpu].freelist = rr;
+        rr = kmem[i].freelist;
+        steal_left--;
+      }
+
+      release(&kmem[i].lock);
+      
+      if(steal_left == 0) break; // done stealing
+    }
+  }
+
+  r = kmem[cpu].freelist;
   if(r)
-    kmem.freelist = r->next;
-  release(&kmem.lock);
+    kmem[cpu].freelist = r->next;
+  release(&kmem[cpu].lock);
 
   if(r)
     memset((char*)r, 5, PGSIZE); // fill with junk
+
+  pop_off();
+
   return (void*)r;
 }
