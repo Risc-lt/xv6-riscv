@@ -23,7 +23,7 @@
 #include "fs.h"
 #include "buf.h"
 
-#define BUFHASH_MAP(dev, blockno) (((dev << 15) + blockno) % NBUFMAP_BUCKETS)
+#define BUFHASH_MAP(dev, blockno) (((dev << 31) | blockno) % NBUFMAP_BUCKETS)
 
 struct {
   struct spinlock lock;
@@ -110,7 +110,7 @@ bget(uint dev, uint blockno)
     acquire(&bcache.bufmap_lock[i]);
     int found = 0;
 
-    for(*b = bcache.bufmap[i]; b; b = b->next){
+    for(b = &bcache.bufmap[i]; b->next; b = b->next){
       if(b->next->refcnt == 0 && (!least || b->next->last_use < least->next->last_use)) {
         least = b;
         found = 1;
