@@ -400,6 +400,7 @@ bmap(struct inode *ip, uint bn)
     brelse(bp);
     return addr;
   }
+  bn -= NINDIRECT;
 
   if(bn < NINDIRECT * NINDIRECT){ // Doubly-indirect block.
     if((addr = ip->addrs[NDIRECT+1]) == 0)
