@@ -137,22 +137,21 @@ e1000_transmit(struct mbuf *m)
 static void
 e1000_recv(void)
 {
-  //
-  // Your code here.
-  //
-  // Check for packets that have arrived from the e1000
-  // Create and deliver an mbuf for each packet (using net_rx()).
-  //
+  
+
   while(1){
+    acquire(&e1000_lock); 
+
     uint32 ind = (regs[E1000_RDT] + 1) % RX_RING_SIZE;
 
     struct rx_desc *desc = &rx_ring[ind];
     // return if all packets have been received
     if (!(desc->status & E1000_RXD_STAT_DD)) {
+      release(&e1000_lock); // Release the lock before returning
       return;
     }
 
-   rx_mbufs[ind]->len = desc->length;
+    rx_mbufs[ind]->len = desc->length;
 
     // deliver the packet to the network stack
     net_rx(rx_mbufs[ind]);
@@ -164,6 +163,8 @@ e1000_recv(void)
 
     // update the index of the next descriptor to use
     regs[E1000_RDT] = ind;
+
+    release(&e1000_lock);
   }
 }
 
