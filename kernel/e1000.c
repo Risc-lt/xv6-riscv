@@ -113,7 +113,7 @@ e1000_transmit(struct mbuf *m)
   }
   
   // free the current mbuf if it is not freed after last sending
-  if(tx_mubfs[ind] != 0) {
+  if(tx_mbufs[ind] != 0) {
     mbuffree(tx_mbufs[ind]);
     tx_mbufs[ind] = 0;
   }
@@ -140,14 +140,14 @@ e1000_recv(void)
   
 
   while(1){
-    acquire(&e1000_lock); 
+    // Remove the commented out code that acquires and releases the lock
+    // acquire(&e1000_lock); 
 
     uint32 ind = (regs[E1000_RDT] + 1) % RX_RING_SIZE;
 
     struct rx_desc *desc = &rx_ring[ind];
     // return if all packets have been received
     if (!(desc->status & E1000_RXD_STAT_DD)) {
-      release(&e1000_lock); // Release the lock before returning
       return;
     }
 
@@ -157,14 +157,14 @@ e1000_recv(void)
     net_rx(rx_mbufs[ind]);
 
     // reset the descriptor
-    rx_mbufs[ind] = mbuffalloc(0);
+    rx_mbufs[ind] = mbufalloc(0);
     desc->addr = (uint64)rx_mbufs[ind]->head;
     desc->status = 0;
 
     // update the index of the next descriptor to use
     regs[E1000_RDT] = ind;
 
-    release(&e1000_lock);
+    // release(&e1000_lock);
   }
 }
 
