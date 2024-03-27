@@ -23,6 +23,8 @@ int getpid(void);
 char* sbrk(int);
 int sleep(int);
 int uptime(void);
+void *mmap(int length, int prot, int flags, int fd);
+int munmap(void *addr, int length);
 
 // ulib.c
 int stat(const char*, struct stat*);
