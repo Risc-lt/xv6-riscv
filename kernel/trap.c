@@ -68,7 +68,7 @@ usertrap(void)
   } else if((which_dev = devintr()) != 0){
     // ok
   } else {
-    uint va = r_stval();
+    uint64 va = r_stval();
     // check if it's a page fault for lazy allocation
     if((r_scause() == 13) || (r_scause() == 15)){
       if(!vmatrylazytouch(va))
